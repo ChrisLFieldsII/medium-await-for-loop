@@ -1,3 +1,18 @@
+function getRandomFromArr(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function jitter(baseValue, range) {
+  const rangeArr = new Array(range).fill(0).map((_, index) => {
+    return index + 1;
+  });
+  const jitterArr = rangeArr.reduce((accum, num) => {
+    accum.push(num, -num);
+    return accum;
+  }, []);
+  return getRandomFromArr(jitterArr) + baseValue;
+}
+
 /**
  *
  * @param {Number} numIds How many ids to generate
@@ -18,16 +33,19 @@ function getRandomIds(numIds = 5) {
  * @desc An example of a "bad" for-loop in which each iteration
  * awaits an async function call causing the function to seem slow
  */
-async function badForLoop(numIds = 5) {
-  var ids = getRandomIds(numIds);
+async function badForLoop(numIds = 5, useJitter = false) {
+  var ids = getRandomIds(numIds); // array of ints to get user by
+  var users = []; // array to accumulate users into for further processing
 
   console.time('badForLoop');
   for (let x = 0; x < ids.length; x++) {
     var id = ids[x];
-    var user = await getUser({ id });
+    var user = await getUser({ id }, useJitter);
+    users.push(user);
     console.log(`User #${x + 1}`, user);
   }
   console.timeEnd('badForLoop');
+  console.log('badForLoop Users:', users);
 }
 
 /**
@@ -36,16 +54,25 @@ async function badForLoop(numIds = 5) {
  * @desc An example of a "good" Array.forEach() loop in which each iteration
  * kicks off an async function without waiting for the previous iterations
  * async function to complete like the badForLoop example.
+ * Unlike the goodForLoop example though it is kind of tricky to
+ * get an array of Users to play with.
  */
-function goodForEachLoop(numIds = 5) {
+function goodForEachLoop(numIds = 5, useJitter = false) {
   var ids = getRandomIds(numIds);
+  var users = [];
 
   console.time('goodForEachLoop');
   ids.forEach(async (id, index) => {
-    var user = await getUser({ id });
+    var user = await getUser({ id }, useJitter);
+    users.push(user);
     console.log(`User #${index + 1}`, user);
   });
   console.timeEnd('goodForEachLoop');
+  console.log('goodForEachLoop', users); // this will be empty...
+  // we'd have to use some tactic like a hardcoded timeout to wait for the async functions
+  // passed into the forEach() loop to resolve and push their user into the array
+  // I really only use this method if I dont care about the response from the async function
+  // otherwise its kinda messy if you need to accumulate the responses
 }
 
 /**
@@ -55,30 +82,36 @@ function goodForEachLoop(numIds = 5) {
  * calls an async function without awaiting and instead pushes the promise into
  * an array where Promise.all() is used to resolve the promises once the loop is done.
  */
-async function goodForLoop(numIds = 5) {
+async function goodForLoop(numIds = 5, useJitter = false) {
   var ids = getRandomIds(numIds);
 
   console.time('goodForLoop');
   const promises = [];
   for (let x = 0; x < ids.length; x++) {
     const id = ids[x];
-    promises.push(getUser({ id }));
+    promises.push(getUser({ id }, useJitter));
   }
-  const res = await Promise.all(promises);
-  console.log(res);
+  const users = await Promise.all(promises);
+  console.log(users);
   console.timeEnd('goodForLoop');
 }
 
 /**
  * @desc This async function simulates fetching a user
  * from a database with an id. The id is just used to index
- * the USERS array
+ * the USERS array.
+ * Can optionally pass useJitter as true so responses resolve out of order
  */
-async function getUser({ id = 0 }) {
+async function getUser({ id = 0 }, useJitter = false) {
+  var waitTime = 3;
+  if (useJitter) {
+    waitTime = jitter(waitTime, 1);
+  }
+
   return new Promise(resolve => {
     setTimeout(() => {
       resolve(USERS[id]);
-    }, 1000 * 3);
+    }, 1000 * waitTime);
   });
 }
 
