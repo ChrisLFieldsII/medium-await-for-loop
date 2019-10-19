@@ -57,16 +57,24 @@ async function badForLoop(numIds = 5, useJitter = false) {
  * Unlike the goodForLoop example though it is kind of tricky to
  * get an array of Users to play with.
  */
-function goodForEachLoop(numIds = 5, useJitter = false) {
+function goodForEachLoop(numIds = 5, useJitter = false, useSync = false) {
   var ids = getRandomIds(numIds);
   var users = [];
 
   console.time('goodForEachLoop');
-  ids.forEach(async (id, index) => {
-    var user = await getUser({ id }, useJitter);
-    users.push(user);
-    console.log(`User #${index + 1}`, user);
-  });
+  if (!useSync) {
+    ids.forEach(async (id, index) => {
+      var user = await getUser({ id }, useJitter);
+      users.push(user);
+      console.log(`User #${index + 1}`, user);
+    });
+  } else {
+    ids.forEach((id, index) => {
+      var user = getUserSync({ id });
+      users.push(user);
+      console.log(`User #${index + 1}`, user);
+    });
+  }
   console.timeEnd('goodForEachLoop');
   console.log('goodForEachLoop', users); // this will be empty...
   // we'd have to use some tactic like a hardcoded timeout to wait for the async functions
@@ -113,6 +121,36 @@ async function getUser({ id = 0 }, useJitter = false) {
       resolve(USERS[id]);
     }, 1000 * waitTime);
   });
+}
+
+function getUserSync({ id }) {
+  return USERS[id];
+}
+
+/**
+ * @desc This function can be awaited within a for-loop
+ * to pause for the desired amount of seconds for example.
+ * @param {Number} pauseTimeSec How many seconds to wait before resolving the promise
+ */
+async function pauseLoop(pauseTimeSec) {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(true), 1000 * pauseTimeSec);
+  });
+}
+
+/**
+ *
+ * @param {Number} numIterations How many times you want to do the loop
+ * @param {Number} pauseTimeSec How many seconds to pause between each loop
+ */
+async function testPauseLoop(numIterations = 5, pauseTimeSec = 3) {
+  for (let x = 0; x < numIterations; x++) {
+    var timeStr = `Iteration ${x + 1}`;
+    console.time(timeStr);
+    await pauseLoop(pauseTimeSec);
+    console.timeEnd(timeStr);
+  }
+  console.log('testPauseLoop done');
 }
 
 // generated thanks to faker.js
